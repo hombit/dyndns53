@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
+from __future__ import print_function
 
 import boto3
 from copy import deepcopy
@@ -58,7 +59,7 @@ def dyndns(hostname, ip=None):
         )
         return response
     else:
-        return "Skipping update, IP haven't been changed"
+        return "Skipping update, IP hasn't been changed"
 
 
 ################################################################################
