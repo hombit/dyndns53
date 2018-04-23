@@ -9,5 +9,5 @@ setup(
     author_email='hombit@gmail.com',
     description='Just another dyndns client for AWS Route 53',
     scripts=['./dyndns53.py'],
-    install_requires=['boto3'],
+    install_requires=['boto3', 'requests'],
 )
