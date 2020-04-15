@@ -27,9 +27,6 @@ def _get_ip():
 
 
 def route53(hostname, force=False, ip=None):
-    if ip is None:
-        ip = _get_ip()
-
     roothostname = '.'.join( hostname.split('.')[-2:] )
     recordname = hostname + '.'
 
@@ -103,5 +100,7 @@ if __name__ == '__main__':
         logging_level= logging.WARNING
     logging.basicConfig(level=logging_level)
 
+    ip = args.ip or _get_ip()
+
     for hostname in args.hostname:
-        route53(hostname, force=args.force, ip=args.ip)
+        route53(hostname, force=args.force, ip=ip)
