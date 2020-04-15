@@ -26,7 +26,7 @@ def _get_ip():
     raise RuntimeError('Cannot get IP')
 
 
-def route53(hostname, ip=None):
+def route53(hostname, force=False, ip=None):
     if ip is None:
         ip = _get_ip()
 
@@ -34,7 +34,12 @@ def route53(hostname, ip=None):
     recordname = hostname + '.'
 
     client = boto3.client('route53')
-    Id = client.list_hosted_zones_by_name(DNSName=roothostname, MaxItems='1')['HostedZones'][0]['Id']
+
+    try:
+        Id = client.list_hosted_zones_by_name(DNSName=roothostname, MaxItems='1')['HostedZones'][0]['Id']
+    except KeyError as e:
+        raise ValueError("Route53 hosted zone {} doesn't exist".format(roothostname)) from e
+
     current_record = client.list_resource_record_sets(
         HostedZoneId=Id,
         StartRecordName=recordname,
@@ -43,18 +48,17 @@ def route53(hostname, ip=None):
     )['ResourceRecordSets'][0]
 
     if current_record['Name'] != recordname:
-        msg = "Hostname {} isn't found on Route53".format(hostname)
-        logging.error(msg)
-        raise ValueError(msg)
-
-    current_ip = current_record['ResourceRecords'][0]['Value']
+        if not force:
+            msg = "Hostname {} isn't found at Route53, use force to create".format(hostname)
+            logging.error(msg)
+            raise ValueError(msg)
+        current_ip = None
+    else:
+        current_ip = current_record['ResourceRecords'][0]['Value']
 
     if ip == current_ip:
         logging.info("Skipping update for {}, IP hasn't been changed".format(hostname))
         return
-
-    new_record = deepcopy(current_record)
-    new_record['ResourceRecords'][0]['Value'] = ip
 
     response = client.change_resource_record_sets(
         HostedZoneId=Id,
@@ -63,7 +67,12 @@ def route53(hostname, ip=None):
             'Changes': [
                 {
                     'Action': 'UPSERT',
-                    'ResourceRecordSet': new_record,
+                    'ResourceRecordSet': {
+                        'Name': recordname,
+                        'Type': 'A',
+                        'TTL': 300,
+                        'ResourceRecords': [{'Value': ip}]
+                    },
                 }
             ]
         }
@@ -82,6 +91,7 @@ if __name__ == '__main__':
                         help='Manually set IP, default is to set public IP of the host')
     parser.add_argument('-v', '--verbose', action='count', default=0,
                         help='Verbose logging, default is ERROR, -v is WARNING, -vv is INFO')
+    parser.add_argument('-f', '--force', action='store_true', help="Create record if it doesn't exist")
     parser.add_argument('hostname', type=str, metavar='HOST', nargs='+',
                         help='Hostname to update')
     args = parser.parse_args()
@@ -94,4 +104,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging_level)
 
     for hostname in args.hostname:
-        route53(hostname, ip=args.ip)
+        route53(hostname, force=args.force, ip=args.ip)
