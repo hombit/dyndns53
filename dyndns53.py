@@ -41,21 +41,21 @@ def route53(hostname, ip, force=False):
     except KeyError as e:
         raise ValueError("Route53 hosted zone {} doesn't exist".format(zone_name)) from e
 
-    current_record = client.list_resource_record_sets(
+    current_records = client.list_resource_record_sets(
         HostedZoneId=Id,
         StartRecordName=recordname,
         StartRecordType='A',
         MaxItems='1'
-    )['ResourceRecordSets'][0]
+    )['ResourceRecordSets']
 
-    if current_record['Name'] != recordname:
+    if len(current_records) == 0 or current_records[0]['Name'] != recordname:
         if not force:
             msg = "Hostname {} isn't found at Route53, use force to create".format(hostname)
             logging.error(msg)
             raise ValueError(msg)
         current_ip = None
     else:
-        current_ip = current_record['ResourceRecords'][0]['Value']
+        current_ip = current_records[0]['ResourceRecords'][0]['Value']
 
     if ip == current_ip:
         logging.info("Skipping update for {}, IP hasn't been changed".format(hostname))
